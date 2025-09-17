@@ -1,8 +1,8 @@
-import args.{Args, command}
 import argv
 import clip
 import clip/help
 import gleam/io
+import utils.{Args, command}
 
 pub fn main() -> Nil {
   let args =
