@@ -1,6 +1,8 @@
+import actor_topology.{initiate_gossip, start_actors}
 import argv
 import clip
 import clip/help
+import gleam/erlang/process
 import gleam/io
 import utils.{Args, command}
 
@@ -14,6 +16,8 @@ pub fn main() -> Nil {
     Error(e) -> panic as { "Input error: " <> e }
     Ok(result) -> result
   }
-
+  start_actors(args.num_nodes, args.topology)
+  |> initiate_gossip("Sample rumor")
+  process.sleep(10_000)
   io.println("Done")
 }
