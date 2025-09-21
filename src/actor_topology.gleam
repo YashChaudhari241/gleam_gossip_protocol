@@ -7,6 +7,7 @@ import gleam/list
 import gleam/option.{None}
 import gleam/otp/actor
 import gleam/result
+import gleam/time/timestamp
 import gossip_actor
 import gossip_supervisor.{handle_msg_sup}
 import pushsum_actor.{handle_msg_pushsum}
@@ -17,39 +18,38 @@ import types.{
 }
 
 // Reduce num_nodes to perfect square/cube in case of 2d/3d
-pub fn get_num_nodes(num_nodes: Int, topology: String) {
-  let num_nodes = case topology {
-    "full" | "line" -> {
-      num_nodes
-    }
-    "2d" -> {
-      { num_nodes + 1 }
-      |> int.to_float
-      |> float.square_root
-      |> result.map(float.floor)
-      |> result.try(float.power(_, 2.0))
-      |> result.map(float.truncate)
-      |> result.unwrap(0)
-    }
-    "3d" | "3d_imperfect" -> {
-      { num_nodes + 1 }
-      |> int.to_float
-      |> float.power(1.0 /. 3.0)
-      |> result.map(float.floor)
-      |> result.try(float.power(_, 3.0))
-      |> result.map(float.truncate)
-      |> result.unwrap(0)
-    }
-    _ -> {
-      panic as "invalid topology"
-    }
-  }
-  num_nodes
-}
+// pub fn get_num_nodes(num_nodes: Int, topology: String) {
+//   let num_nodes = case topology {
+//     "full" | "line" -> {
+//       num_nodes
+//     }
+//     "2d" -> {
+//       { num_nodes + 1 }
+//       |> int.to_float
+//       |> float.square_root
+//       |> result.map(float.floor)
+//       |> result.try(float.power(_, 2.0))
+//       |> result.map(float.truncate)
+//       |> result.unwrap(0)
+//     }
+//     "3d" | "3d_imperfect" -> {
+//       { num_nodes + 1 }
+//       |> int.to_float
+//       |> float.power(1.0 /. 3.0)
+//       |> result.map(float.floor)
+//       |> result.try(float.power(_, 3.0))
+//       |> result.map(float.truncate)
+//       |> result.unwrap(0)
+//     }
+//     _ -> {
+//       panic as "invalid topology"
+//     }
+//   }
+//   num_nodes
+// }
 
 pub fn initiate_gossip(system_nodes: SystemNodes, rumor: String) {
   io.println("initiating...")
-  process.sleep(1000)
   let random_actor =
     system_nodes.nodes |> dict.values |> list.sample(1) |> list.first
   case random_actor {
@@ -68,6 +68,7 @@ pub fn start_supervisor(num_nodes: Int, algorithm: Algorithm) {
       active_process: None,
       nodes: None,
       algorithm:,
+      start_time: timestamp.system_time(),
     ))
     |> actor.on_message(handle_msg_sup)
     |> actor.start

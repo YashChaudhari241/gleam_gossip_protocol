@@ -1,6 +1,5 @@
 import actor_topology.{
-  get_num_nodes, initiate_gossip, start_actors, start_simulation,
-  start_supervisor,
+  initiate_gossip, start_actors, start_simulation, start_supervisor,
 }
 import argv
 import clip
@@ -20,8 +19,8 @@ pub fn main() -> Nil {
     Error(e) -> panic as { "Input error: " <> e }
     Ok(result) -> result
   }
-  let num_nodes = get_num_nodes(args.num_nodes, args.topology)
-
+  // let num_nodes = get_num_nodes(args.num_nodes, args.topology)
+  let num_nodes = args.num_nodes
   case args.algorithm {
     "gossip" -> {
       start_supervisor(num_nodes, Gossip)

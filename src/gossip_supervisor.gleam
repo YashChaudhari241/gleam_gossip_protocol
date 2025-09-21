@@ -5,6 +5,8 @@ import gleam/io
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/otp/actor
+import gleam/time/duration
+import gleam/time/timestamp
 import types.{
   type GossipMessage, type SupervisorMessage, type SupervisorState,
   GossipNodeConverged, PushsumNodeConverged, RoundComplete, SetNodes,
@@ -18,12 +20,18 @@ pub fn handle_msg_sup(state: SupervisorState, msg: SupervisorMessage) {
     }
     StartSimulationSync -> {
       simulate_rounds_sync(state.nodes |> option.unwrap([]))
-      actor.continue(state)
+      actor.continue(
+        SupervisorState(..state, start_time: timestamp.system_time()),
+      )
     }
     GossipNodeConverged -> {
       case state.actors_converged {
         x if x == state.num_nodes - 1 -> {
-          io.println("Convergence reached")
+          io.println(
+            "Convergence reached. Time taken: "
+            <> timestamp.difference(state.start_time, timestamp.system_time())
+            |> duration.to_iso8601_string(),
+          )
           actor.stop()
         }
         _ ->
@@ -48,19 +56,37 @@ pub fn handle_msg_sup(state: SupervisorState, msg: SupervisorMessage) {
       }
     }
     PushsumNodeConverged(s, w) -> {
-      io.println(
-        "Node Converged s: "
-        <> float.to_string(s)
-        <> " w: "
-        <> float.to_string(w)
-        <> " ratio: "
-        <> float.to_string(s /. w)
-        <> " Total: "
-        <> int.to_string(state.actors_converged),
-      )
-      actor.continue(
-        SupervisorState(..state, actors_converged: state.actors_converged + 1),
-      )
+      // io.println(
+      //   "Node Converged s: "
+      //   <> float.to_string(s)
+      //   <> " w: "
+      //   <> float.to_string(w)
+      //   <> " ratio: "
+      //   <> float.to_string(s /. w)
+      //   <> " Total: "
+      //   <> int.to_string(state.actors_converged),
+      // )
+      let convergence_ratio =
+        int.to_float(state.actors_converged) /. int.to_float(state.num_nodes)
+      case convergence_ratio >. 0.65 {
+        True -> {
+          io.println(
+            "Convergence threshold reached. Time taken: "
+            <> timestamp.difference(state.start_time, timestamp.system_time())
+            |> duration.to_iso8601_string()
+            <> " Ratio(s/w): "
+            <> float.to_string(s /. w),
+          )
+          actor.stop()
+        }
+        False ->
+          actor.continue(
+            SupervisorState(
+              ..state,
+              actors_converged: state.actors_converged + 1,
+            ),
+          )
+      }
     }
     ShutdownSupervisor -> {
       actor.stop()

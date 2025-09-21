@@ -1,6 +1,7 @@
 import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
 import gleam/option.{type Option}
+import gleam/time/timestamp
 
 pub type SupervisorMessage {
   // StartSimulationAsync(round_limit: Int)
@@ -25,6 +26,7 @@ pub type SupervisorState {
     actors_received: Int,
     actors_converged: Int,
     num_nodes: Int,
+    start_time: timestamp.Timestamp,
     active_process: Option(process.Pid),
     algorithm: Algorithm,
   )
