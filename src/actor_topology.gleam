@@ -23,7 +23,7 @@ pub fn get_num_nodes(num_nodes: Int, topology: String) {
       num_nodes
     }
     "2d" -> {
-      num_nodes
+      { num_nodes + 1 }
       |> int.to_float
       |> float.square_root
       |> result.map(float.floor)
@@ -32,7 +32,7 @@ pub fn get_num_nodes(num_nodes: Int, topology: String) {
       |> result.unwrap(0)
     }
     "3d" | "3d_imperfect" -> {
-      num_nodes
+      { num_nodes + 1 }
       |> int.to_float
       |> float.power(1.0 /. 3.0)
       |> result.map(float.floor)
@@ -81,16 +81,18 @@ pub fn start_actors(
   topology: String,
   algorithm: Algorithm,
 ) {
+  io.println("num nodes " <> int.to_string(num_nodes))
   let subject_dict =
     list.range(0, num_nodes - 1)
-    |> list.map(fn(i: Int) {
+    |> list.shuffle
+    |> list.index_map(fn(i: Int, index: Int) {
       let assert Ok(actor_result) =
         case algorithm {
           Gossip ->
             actor.new(RumorGossipState(
               frequency: 0,
               neighbors: [],
-              index: i,
+              index: index,
               supervisor: supervisor,
               self: option.None,
               rumor: option.None,
@@ -99,7 +101,7 @@ pub fn start_actors(
           Pushsum ->
             actor.new(PushsumGossipState(
               neighbors: [],
-              index: i,
+              index: index,
               s: int.to_float(i),
               w: 1.0,
               supervisor: supervisor,
@@ -109,7 +111,7 @@ pub fn start_actors(
             |> actor.on_message(handle_msg_pushsum)
         }
         |> actor.start
-      #(i, actor_result.data)
+      #(index, actor_result.data)
     })
     |> dict.from_list
     |> initialize_actors(num_nodes, topology)

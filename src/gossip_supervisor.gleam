@@ -20,22 +20,10 @@ pub fn handle_msg_sup(state: SupervisorState, msg: SupervisorMessage) {
       simulate_rounds_sync(state.nodes |> option.unwrap([]))
       actor.continue(state)
     }
-    // StartSimulationAsync(round_limit) -> {
-    //   let worker =
-    //     process.spawn(fn() {
-    //       simulate_rounds(state.nodes |> option.unwrap([]), 0, round_limit)
-    //     })
-    //   actor.continue(SupervisorState(..state, active_process: Some(worker)))
-    // }
     GossipNodeConverged -> {
-      // io.println("Received: " <> int.to_string(state.actors_received + 1))
       case state.actors_converged {
         x if x == state.num_nodes - 1 -> {
           io.println("Convergence reached")
-          // case state.active_process {
-          //   Some(x) -> process.kill(x)
-          //   None -> io.println("cannot find worker process")
-          // }
           actor.stop()
         }
         _ ->
@@ -71,7 +59,7 @@ pub fn handle_msg_sup(state: SupervisorState, msg: SupervisorMessage) {
         <> int.to_string(state.actors_converged),
       )
       actor.continue(
-        SupervisorState(..state, actors_converged: state.actors_converged),
+        SupervisorState(..state, actors_converged: state.actors_converged + 1),
       )
     }
     ShutdownSupervisor -> {
@@ -84,19 +72,3 @@ fn simulate_rounds_sync(nodes: List(Subject(GossipMessage))) {
   nodes
   |> list.each(fn(node) { process.send(node, SimulateRound(1)) })
 }
-// fn simulate_rounds(
-//   nodes: List(Subject(GossipMessage)),
-//   round: Int,
-//   round_limit: Int,
-// ) {
-//   case round < round_limit {
-//     True -> {
-//       nodes
-//       |> list.each(fn(node) { process.send(node, SimulateRound(round)) })
-//       simulate_rounds(nodes, round + 1, round_limit)
-//     }
-//     False -> {
-//       io.println("Round limit reached.")
-//     }
-//   }
-// }
