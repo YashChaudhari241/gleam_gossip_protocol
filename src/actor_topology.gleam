@@ -9,9 +9,11 @@ import gleam/otp/actor
 import gleam/result
 import gossip_actor
 import gossip_supervisor.{handle_msg_sup}
+import pushsum_actor.{handle_msg_pushsum}
 import types.{
-  type GossipMessage, type SupervisorMessage, type SupervisorState,
-  type SystemNodes, GossipState, Rumor, SetNeighbors, SetNodes, SupervisorState,
+  type Algorithm, type GossipMessage, type SupervisorMessage,
+  type SupervisorState, type SystemNodes, Gossip, Pushsum, PushsumGossipState,
+  Rumor, RumorGossipState, SetNeighbors, SetNodes, SupervisorState,
 }
 
 // Reduce num_nodes to perfect square/cube in case of 2d/3d
@@ -57,13 +59,15 @@ pub fn initiate_gossip(system_nodes: SystemNodes, rumor: String) {
   system_nodes
 }
 
-pub fn start_supervisor(num_nodes: Int) {
+pub fn start_supervisor(num_nodes: Int, algorithm: Algorithm) {
   let assert Ok(sup_result) =
     actor.new(SupervisorState(
       actors_received: 0,
+      actors_converged: 0,
       num_nodes: num_nodes,
       active_process: None,
       nodes: None,
+      algorithm:,
     ))
     |> actor.on_message(handle_msg_sup)
     |> actor.start
@@ -75,20 +79,35 @@ pub fn start_actors(
   supervisor: Subject(SupervisorMessage),
   num_nodes: Int,
   topology: String,
+  algorithm: Algorithm,
 ) {
   let subject_dict =
     list.range(0, num_nodes - 1)
     |> list.map(fn(i: Int) {
       let assert Ok(actor_result) =
-        actor.new(GossipState(
-          frequency: 0,
-          neighbors: [],
-          index: i,
-          supervisor: supervisor,
-          self: option.None,
-          rumor: option.None,
-        ))
-        |> actor.on_message(gossip_actor.handle_message_gossip)
+        case algorithm {
+          Gossip ->
+            actor.new(RumorGossipState(
+              frequency: 0,
+              neighbors: [],
+              index: i,
+              supervisor: supervisor,
+              self: option.None,
+              rumor: option.None,
+            ))
+            |> actor.on_message(gossip_actor.handle_message_gossip)
+          Pushsum ->
+            actor.new(PushsumGossipState(
+              neighbors: [],
+              index: i,
+              s: int.to_float(i),
+              w: 1.0,
+              supervisor: supervisor,
+              self: option.None,
+              termination_count: 0,
+            ))
+            |> actor.on_message(handle_msg_pushsum)
+        }
         |> actor.start
       #(i, actor_result.data)
     })
@@ -99,7 +118,7 @@ pub fn start_actors(
 }
 
 pub fn start_simulation(system_nodes: SystemNodes, round_limit: Int) {
-  process.send(system_nodes.supervisor, types.StartSimulation(round_limit:))
+  process.send(system_nodes.supervisor, types.StartSimulationSync)
 }
 
 // set neighbors for each of the actors

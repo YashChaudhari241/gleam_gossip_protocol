@@ -3,10 +3,13 @@ import gleam/erlang/process.{type Subject}
 import gleam/option.{type Option}
 
 pub type SupervisorMessage {
-  StartSimulation(round_limit: Int)
+  // StartSimulationAsync(round_limit: Int)
+  StartSimulationSync
   SetNodes(List(Subject(GossipMessage)))
   ShutdownSupervisor
-  Received
+  RoundComplete
+  GossipNodeConverged
+  PushsumNodeConverged(s: Float, w: Float)
 }
 
 pub type SystemNodes {
@@ -20,12 +23,15 @@ pub type SupervisorState {
   SupervisorState(
     nodes: Option(List(Subject(GossipMessage))),
     actors_received: Int,
+    actors_converged: Int,
     num_nodes: Int,
     active_process: Option(process.Pid),
+    algorithm: Algorithm,
   )
 }
 
 pub type GossipMessage {
+  PushsumMessage(s: Float, w: Float)
   Rumor(rumor: String)
   SimulateRound(round: Int)
   SetNeighbors(
@@ -35,13 +41,27 @@ pub type GossipMessage {
   Shutdown
 }
 
+pub type Algorithm {
+  Gossip
+  Pushsum
+}
+
 pub type GossipState {
-  GossipState(
+  RumorGossipState(
     frequency: Int,
     neighbors: List(Subject(GossipMessage)),
     rumor: Option(String),
     index: Int,
     supervisor: Subject(SupervisorMessage),
     self: Option(Subject(GossipMessage)),
+  )
+  PushsumGossipState(
+    neighbors: List(Subject(GossipMessage)),
+    s: Float,
+    w: Float,
+    index: Int,
+    supervisor: Subject(SupervisorMessage),
+    self: Option(Subject(GossipMessage)),
+    termination_count: Int,
   )
 }

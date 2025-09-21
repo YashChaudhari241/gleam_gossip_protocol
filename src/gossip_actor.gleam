@@ -1,44 +1,57 @@
 import gleam/erlang/process.{type Subject}
-import gleam/int
 import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/otp/actor
 import types.{
-  type GossipMessage, type GossipState, type SupervisorMessage, GossipState,
-  Received, Rumor, SetNeighbors, Shutdown, SimulateRound,
+  type GossipMessage, type GossipState, Rumor, RumorGossipState, SetNeighbors,
+  Shutdown, SimulateRound,
 }
 
 pub fn handle_message_gossip(state: GossipState, msg: GossipMessage) {
-  case msg {
-    SimulateRound(_) -> {
-      case state.frequency {
-        0 -> Nil
-        x if x < 10 ->
-          send_to_random_neighbor(
-            state.neighbors,
-            state.rumor |> option.unwrap(""),
+  case state {
+    RumorGossipState(frequency, neighbors, rumor, index, supervisor, self) -> {
+      case msg {
+        SimulateRound(_) -> {
+          case frequency {
+            x if x < 10 && x > 0 ->
+              send_to_random_neighbor(
+                state.neighbors,
+                state.rumor |> option.unwrap(""),
+              )
+            _ -> {
+              process.send(supervisor, types.RoundComplete)
+            }
+          }
+          actor.continue(state)
+        }
+        Rumor(rumor) -> {
+          process.send(supervisor, types.RoundComplete)
+          // io.println("got rumor")
+          case state.frequency {
+            0 -> process.send(state.supervisor, types.GossipNodeConverged)
+            _ -> Nil
+          }
+          actor.continue(
+            RumorGossipState(
+              ..state,
+              frequency: state.frequency + 1,
+              rumor: Some(rumor),
+            ),
           )
-        _ -> Nil
+        }
+        Shutdown -> {
+          actor.stop()
+        }
+        SetNeighbors(neighbors, self) -> {
+          actor.continue(
+            RumorGossipState(..state, neighbors: neighbors, self: self),
+          )
+        }
+        _ -> actor.continue(state)
       }
-      actor.continue(state)
     }
-    Rumor(rumor) -> {
-      // io.println("got rumor")
-      case state.frequency {
-        0 -> process.send(state.supervisor, Received)
-        _ -> Nil
-      }
-      actor.continue(
-        GossipState(..state, frequency: state.frequency + 1, rumor: Some(rumor)),
-      )
-    }
-    Shutdown -> {
-      actor.stop()
-    }
-    SetNeighbors(neighbors, self) -> {
-      actor.continue(GossipState(..state, neighbors: neighbors, self: self))
-    }
+    _ -> panic as "Incorrect state type"
   }
 }
 
