@@ -1,4 +1,7 @@
-import actor_topology.{initiate_gossip, start_actors}
+import actor_topology.{
+  get_num_nodes, initiate_gossip, start_actors, start_simulation,
+  start_supervisor,
+}
 import argv
 import clip
 import clip/help
@@ -16,8 +19,11 @@ pub fn main() -> Nil {
     Error(e) -> panic as { "Input error: " <> e }
     Ok(result) -> result
   }
-  start_actors(args.num_nodes, args.topology)
+  let num_nodes = get_num_nodes(args.num_nodes, args.topology)
+  start_supervisor(num_nodes)
+  |> start_actors(num_nodes, args.topology)
   |> initiate_gossip("Sample rumor")
+  |> start_simulation(10_000)
   process.sleep(10_000)
   io.println("Done")
 }

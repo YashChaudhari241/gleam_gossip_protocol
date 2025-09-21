@@ -4,12 +4,18 @@ import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
+import gleam/option.{None}
 import gleam/otp/actor
 import gleam/result
-import gossip_actor.{type GossipMessage, GossipState, Rumor, SetNeighbors}
+import gossip_actor
+import gossip_supervisor.{handle_msg_sup}
+import types.{
+  type GossipMessage, type SupervisorMessage, type SupervisorState,
+  type SystemNodes, GossipState, Rumor, SetNeighbors, SetNodes, SupervisorState,
+}
 
 // Reduce num_nodes to perfect square/cube in case of 2d/3d
-fn get_num_nodes(num_nodes: Int, topology: String) {
+pub fn get_num_nodes(num_nodes: Int, topology: String) {
   let num_nodes = case topology {
     "full" | "line" -> {
       num_nodes
@@ -39,33 +45,61 @@ fn get_num_nodes(num_nodes: Int, topology: String) {
   num_nodes
 }
 
-pub fn initiate_gossip(
-  subject_dict: Dict(Int, Subject(GossipMessage)),
-  rumor: String,
-) {
-  let random_actor = subject_dict |> dict.values |> list.sample(1) |> list.first
+pub fn initiate_gossip(system_nodes: SystemNodes, rumor: String) {
+  io.println("initiating...")
+  process.sleep(1000)
+  let random_actor =
+    system_nodes.nodes |> dict.values |> list.sample(1) |> list.first
   case random_actor {
     Ok(actor) -> process.send(actor, Rumor(rumor: rumor))
     Error(_) -> panic as "No actors found to initiate"
   }
+  system_nodes
+}
+
+pub fn start_supervisor(num_nodes: Int) {
+  let assert Ok(sup_result) =
+    actor.new(SupervisorState(
+      actors_received: 0,
+      num_nodes: num_nodes,
+      active_process: None,
+      nodes: None,
+    ))
+    |> actor.on_message(handle_msg_sup)
+    |> actor.start
+  sup_result.data
 }
 
 // Start actors and initialize them
-pub fn start_actors(num_nodes: Int, topology: String) {
-  let num_nodes = get_num_nodes(num_nodes, topology)
-  echo num_nodes
+pub fn start_actors(
+  supervisor: Subject(SupervisorMessage),
+  num_nodes: Int,
+  topology: String,
+) {
   let subject_dict =
     list.range(0, num_nodes - 1)
     |> list.map(fn(i: Int) {
       let assert Ok(actor_result) =
-        actor.new(GossipState(frequency: 0, neighbors: [], index: i))
+        actor.new(GossipState(
+          frequency: 0,
+          neighbors: [],
+          index: i,
+          supervisor: supervisor,
+          self: option.None,
+          rumor: option.None,
+        ))
         |> actor.on_message(gossip_actor.handle_message_gossip)
         |> actor.start
       #(i, actor_result.data)
     })
     |> dict.from_list
     |> initialize_actors(num_nodes, topology)
-  subject_dict
+  process.send(supervisor, SetNodes(dict.values(subject_dict)))
+  types.SystemNodes(nodes: subject_dict, supervisor:)
+}
+
+pub fn start_simulation(system_nodes: SystemNodes, round_limit: Int) {
+  process.send(system_nodes.supervisor, types.StartSimulation(round_limit:))
 }
 
 // set neighbors for each of the actors
@@ -77,7 +111,10 @@ fn initialize_actors(
   dict.each(subject_dict, fn(index: Int, subject: Subject(GossipMessage)) {
     process.send(
       subject,
-      SetNeighbors(get_neighbors(index, subject_dict, num_nodes, topology)),
+      SetNeighbors(
+        get_neighbors(index, subject_dict, num_nodes, topology),
+        self: dict.get(subject_dict, index) |> option.from_result,
+      ),
     )
   })
   subject_dict
@@ -209,5 +246,4 @@ fn get_neighbors_3d_imperfect(
   |> dict.values
   |> list.sample(1)
   |> list.append(neighbors)
-  |> echo
 }
