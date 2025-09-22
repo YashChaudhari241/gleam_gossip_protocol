@@ -12,7 +12,10 @@ import utils.{command}
 pub fn main() -> Nil {
   let args =
     command()
-    |> clip.help(help.simple("lukas", "Provide N, k and batch_size(optional)"))
+    |> clip.help(help.simple(
+      "gossip",
+      "Provide num_nodes, topology and algorithm",
+    ))
     |> clip.run(argv.load().arguments)
 
   let args = case args {
@@ -34,7 +37,7 @@ pub fn main() -> Nil {
       |> start_simulation
     }
     _ -> {
-      panic as "Invalid algorithm"
+      panic as "Invalid algorithm, allowed values: gossip, push-sum"
     }
   }
   process.sleep(10_000)
