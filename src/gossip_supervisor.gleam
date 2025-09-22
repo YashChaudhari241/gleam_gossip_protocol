@@ -3,8 +3,9 @@ import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option.{Some}
 import gleam/otp/actor
+import gleam/result
 import gleam/time/duration
 import gleam/time/timestamp
 import types.{
@@ -24,6 +25,7 @@ pub fn handle_msg_sup(state: SupervisorState, msg: SupervisorMessage) {
         SupervisorState(..state, start_time: timestamp.system_time()),
       )
     }
+    // Node receives the msg for the first time
     GossipNodeConverged -> {
       case state.actors_converged {
         x if x == state.num_nodes - 1 -> {
@@ -43,6 +45,7 @@ pub fn handle_msg_sup(state: SupervisorState, msg: SupervisorMessage) {
           )
       }
     }
+    // Get round progress data from actors
     RoundComplete -> {
       case state.actors_received {
         x if x == state.num_nodes - 1 -> {
@@ -68,6 +71,7 @@ pub fn handle_msg_sup(state: SupervisorState, msg: SupervisorMessage) {
       // )
       let convergence_ratio =
         int.to_float(state.actors_converged) /. int.to_float(state.num_nodes)
+      // 65% of the nodes terminated
       case convergence_ratio >. 0.65 {
         True -> {
           io.println(
@@ -77,7 +81,14 @@ pub fn handle_msg_sup(state: SupervisorState, msg: SupervisorMessage) {
             <> " Ratio(s/w): "
             <> float.to_string(s /. w),
           )
+          pushsum_get_stats(state.nodes |> option.unwrap([]))
           actor.stop()
+          // actor.continue(
+          //   SupervisorState(
+          //     ..state,
+          //     actors_converged: state.actors_converged + 1,
+          //   ),
+          // )
         }
         False ->
           actor.continue(
@@ -92,6 +103,27 @@ pub fn handle_msg_sup(state: SupervisorState, msg: SupervisorMessage) {
       actor.stop()
     }
   }
+}
+
+fn pushsum_get_stats(nodes: List(Subject(GossipMessage))) {
+  let std_dev =
+    list.map(nodes, fn(item) { process.call(item, 10, types.GetRatio) })
+    |> get_std_deviation
+  io.println("Std dev:" <> float.to_string(std_dev))
+}
+
+fn get_std_deviation(list_nums: List(Float)) -> Float {
+  let count = int.to_float(list.length(list_nums))
+  let mean = float.sum(list_nums) /. count
+  let sum_of_squared_diffs =
+    list_nums
+    |> list.map(fn(x) {
+      let diff = x -. mean
+      diff *. diff
+    })
+    |> float.sum
+  let variance = sum_of_squared_diffs /. count
+  float.square_root(variance) |> result.unwrap(-1.0)
 }
 
 fn simulate_rounds_sync(nodes: List(Subject(GossipMessage))) {

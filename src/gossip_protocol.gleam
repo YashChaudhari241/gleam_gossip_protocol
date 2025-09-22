@@ -7,7 +7,7 @@ import clip/help
 import gleam/erlang/process
 import gleam/io
 import types.{Gossip, Pushsum}
-import utils.{Args, command}
+import utils.{command}
 
 pub fn main() -> Nil {
   let args =
@@ -26,12 +26,12 @@ pub fn main() -> Nil {
       start_supervisor(num_nodes, Gossip)
       |> start_actors(num_nodes, args.topology, Gossip)
       |> initiate_gossip("Sample rumor")
-      |> start_simulation(10_000)
+      |> start_simulation
     }
     "push-sum" -> {
       start_supervisor(num_nodes, Pushsum)
       |> start_actors(num_nodes, args.topology, Pushsum)
-      |> start_simulation(100_000)
+      |> start_simulation
     }
     _ -> {
       panic as "Invalid algorithm"

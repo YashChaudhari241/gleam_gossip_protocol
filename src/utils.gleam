@@ -1,7 +1,5 @@
-import argv
 import clip.{type Command}
 import clip/arg
-import clip/help
 
 pub type Args {
   Args(num_nodes: Int, topology: String, algorithm: String)
@@ -20,7 +18,9 @@ pub fn command() -> Command(Args) {
     |> arg.int
     |> arg.help("Number of nodes in the system"),
   )
-  |> clip.arg(arg.new("topology") |> arg.help("Topology"))
+  |> clip.arg(
+    arg.new("topology") |> arg.help("Topology: 2d, full, line, 3d or imp3d"),
+  )
   |> clip.arg(
     arg.new("algorithm")
     |> arg.default("gossip")

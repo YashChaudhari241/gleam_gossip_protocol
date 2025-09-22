@@ -36,6 +36,7 @@ pub type GossipMessage {
   PushsumMessage(s: Float, w: Float)
   Rumor(rumor: String)
   SimulateRound(round: Int)
+  GetRatio(reply_with: Subject(Float))
   SetNeighbors(
     neighbors: List(Subject(GossipMessage)),
     self: Option(Subject(GossipMessage)),

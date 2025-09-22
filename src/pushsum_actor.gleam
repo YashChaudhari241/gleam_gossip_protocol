@@ -1,12 +1,10 @@
 import gleam/erlang/process.{type Subject}
 import gleam/io
 import gleam/list
-import gleam/option.{type Option, None, Some}
 import gleam/otp/actor
 import types.{
-  type GossipMessage, type GossipState, PushsumGossipState, PushsumMessage,
-  PushsumNodeConverged, Rumor, RumorGossipState, SetNeighbors, Shutdown,
-  SimulateRound,
+  type GossipMessage, type GossipState, GetRatio, PushsumGossipState,
+  PushsumMessage, PushsumNodeConverged, SetNeighbors, Shutdown, SimulateRound,
 }
 
 pub fn handle_msg_pushsum(state: GossipState, msg: GossipMessage) {
@@ -15,12 +13,16 @@ pub fn handle_msg_pushsum(state: GossipState, msg: GossipMessage) {
       neighbors,
       s,
       w,
-      index,
+      _index,
       supervisor,
-      self,
+      _self,
       termination_count,
     ) -> {
       case msg {
+        GetRatio(caller) -> {
+          process.send(caller, s /. w)
+          actor.continue(state)
+        }
         SetNeighbors(neighbors, self) -> {
           actor.continue(
             PushsumGossipState(..state, neighbors: neighbors, self: self),

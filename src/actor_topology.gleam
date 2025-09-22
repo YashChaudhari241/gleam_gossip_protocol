@@ -12,9 +12,9 @@ import gossip_actor
 import gossip_supervisor.{handle_msg_sup}
 import pushsum_actor.{handle_msg_pushsum}
 import types.{
-  type Algorithm, type GossipMessage, type SupervisorMessage,
-  type SupervisorState, type SystemNodes, Gossip, Pushsum, PushsumGossipState,
-  Rumor, RumorGossipState, SetNeighbors, SetNodes, SupervisorState,
+  type Algorithm, type GossipMessage, type SupervisorMessage, type SystemNodes,
+  Gossip, Pushsum, PushsumGossipState, Rumor, RumorGossipState, SetNeighbors,
+  SetNodes, SupervisorState,
 }
 
 // Reduce num_nodes to perfect square/cube in case of 2d/3d
@@ -120,7 +120,7 @@ pub fn start_actors(
   types.SystemNodes(nodes: subject_dict, supervisor:)
 }
 
-pub fn start_simulation(system_nodes: SystemNodes, round_limit: Int) {
+pub fn start_simulation(system_nodes: SystemNodes) {
   process.send(system_nodes.supervisor, types.StartSimulationSync)
 }
 
@@ -130,6 +130,7 @@ fn initialize_actors(
   num_nodes: Int,
   topology: String,
 ) -> Dict(Int, Subject(GossipMessage)) {
+  io.println("Building Topology")
   dict.each(subject_dict, fn(index: Int, subject: Subject(GossipMessage)) {
     process.send(
       subject,
@@ -139,6 +140,7 @@ fn initialize_actors(
       ),
     )
   })
+  io.println("Starting...")
   subject_dict
 }
 
@@ -154,8 +156,8 @@ fn get_neighbors(
     "line" -> get_neighbors_line(index, subject_dict)
     "2d" -> get_neighbors_2d(index, subject_dict, num_nodes)
     "3d" -> get_neighbors_3d(index, subject_dict, num_nodes)
-    "3d_imperfect" -> get_neighbors_3d_imperfect(index, subject_dict, num_nodes)
-    _ -> []
+    "imp3d" -> get_neighbors_3d_imperfect(index, subject_dict, num_nodes)
+    _ -> panic as "Invalid topology, allowed values: full, line, 2d, 3d, imp3d"
   }
 }
 
